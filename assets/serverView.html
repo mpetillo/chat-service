@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Real-Time Chat</title>
+    <style>
+      body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; }
+      .container {
+        flex: 1; 
+        display: flex; 
+        flex-direction: column; 
+        height: 100vh; 
+        overflow: hidden; 
+      }
+      #top-forms {
+        background: #f5f5f5; 
+        padding: 1rem; 
+        border-bottom: 1px solid #ccc;
+      }
+      #top-forms form { margin: 0.5rem 0; }
+      #top-forms input { margin-right: 0.5rem; }
+
+      #chat-section {
+        flex: 1; 
+        display: flex; 
+        overflow: hidden;
+      }
+
+      /* Sidebar for online users */
+      #sidebar {
+        width: 200px; 
+        border-right: 1px solid #ccc; 
+        background: #f7f7f7; 
+        padding: 1rem; 
+        box-sizing: border-box;
+        overflow-y: auto;
+      }
+      #sidebar h3 {
+        margin-top: 0;
+      }
+      #user-list {
+        list-style-type: none; 
+        padding: 0; 
+        margin: 0;
+      }
+      #user-list li {
+        margin: 0.5rem 0; 
+        padding: 0.5rem; 
+        background: #eaeaea; 
+        border-radius: 3px;
+      }
+
+      /* Messages */
+      #message-area {
+        flex: 1; 
+        display: flex; 
+        flex-direction: column; 
+        justify-content: space-between;
+      }
+      #messages { 
+        list-style-type: none; 
+        margin: 0; 
+        padding: 0; 
+        flex-grow: 1; 
+        overflow-y: auto; 
+      }
+      #messages > li { padding: 0.5rem 1rem; }
+      #messages > li:nth-child(odd) { background: #efefef; }
+
+      /* Chat input form */
+      #form { 
+        background: rgba(0, 0, 0, 0.15); 
+        padding: 0.25rem; 
+        display: flex; 
+        height: 3rem; 
+        box-sizing: border-box; 
+        backdrop-filter: blur(10px); 
+      }
+      #input { 
+        border: none; 
+        padding: 0 1rem; 
+        flex-grow: 1; 
+        border-radius: 2rem; 
+        margin: 0.25rem; 
+      }
+      #input:focus { outline: none; }
+      #form > button { 
+        background: #333; 
+        border: none; 
+        padding: 0 1rem; 
+        margin: 0.25rem; 
+        border-radius: 3px; 
+        outline: none; 
+        color: #fff; 
+      }
+
+      /* Hidden sections until user logs in */
+      #chat-section, #form {
+        display: none;
+      }
+      #chat-section.active, #form.active {
+        display: flex;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Top section for registration and login -->
+      <div id="top-forms">
+        <h2>Welcome to the Chat!</h2>
+        <form id="createAccountForm">
+          <input type="text" id="reg-username" placeholder="Username">
+          <input type="password" id="reg-password" placeholder="Password">
+          <button type="submit">Create Account</button>
+        </form>
+        <div id="registrationMessage" style="color: green;"></div>
+
+        <form id="loginForm">
+          <input type="text" id="login-username" placeholder="Username">
+          <input type="password" id="login-password" placeholder="Password">
+          <button type="submit">Login</button>
+        </form>
+        <div id="loginMessage" style="color: red;"></div>
+      </div>
+
+      <!-- After logging in -->
+      <div id="chat-section">
+        <div id="sidebar">
+          <h3>Online Users</h3>
+          <ul id="user-list"></ul>
+        </div>
+        <div id="message-area">
+          <ul id="messages"></ul>
+          <form id="form" action="">
+            <input id="input" autocomplete="off" placeholder="Type a message..."/><button>Send</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+
+      const createAccountForm = document.getElementById('createAccountForm');
+      const loginForm = document.getElementById('loginForm');
+      const registrationMessage = document.getElementById('registrationMessage');
+      const loginMessage = document.getElementById('loginMessage');
+
+      const regUsername = document.getElementById('reg-username');
+      const regPassword = document.getElementById('reg-password');
+      const loginUsername = document.getElementById('login-username');
+      const loginPassword = document.getElementById('login-password');
+
+      const messages = document.getElementById('messages');
+      const form = document.getElementById('form');
+      const input = document.getElementById('input');
+      const chatSection = document.getElementById('chat-section');
+      const userList = document.getElementById('user-list');
+
+      // Handle account creation
+      createAccountForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const user = regUsername.value.trim();
+        const pass = regPassword.value.trim();
+        if (user && pass) {
+          socket.emit('createaccount', user, pass);
+        }
+      });
+
+      socket.on('registrationError', (msg) => {
+        registrationMessage.style.color = 'red';
+        registrationMessage.textContent = msg;
+      });
+
+      socket.on('registrationSuccess', (msg) => {
+        registrationMessage.style.color = 'green';
+        registrationMessage.textContent = msg;
+      });
+
+      // Handle login
+      loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const user = loginUsername.value.trim();
+        const pass = loginPassword.value.trim();
+        if (user && pass) {
+          socket.emit('login', user, pass);
+        }
+      });
+
+      socket.on('loginError', (msg) => {
+        loginMessage.style.color = 'red';
+        loginMessage.textContent = msg;
+      });
+
+      socket.on('loginSuccess', (msg) => {
+        loginMessage.style.color = 'green';
+        loginMessage.textContent = msg;
+        // Show chat section
+        chatSection.classList.add('active');
+        form.classList.add('active');
+      });
+
+      // Handle chat messages
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (input.value) {
+          socket.emit('chat message', input.value);
+          input.value = '';
+        }
+      });
+
+      socket.on('chat message', (msg) => {
+        const item = document.createElement('li');
+        item.textContent = msg;
+        messages.appendChild(item);
+        messages.scrollTop = messages.scrollHeight;
+      });
+
+      // Update online users
+      socket.on('onlineUsers', (users) => {
+        userList.innerHTML = '';
+        users.forEach((user) => {
+          const li = document.createElement('li');
+          li.textContent = user;
+          userList.appendChild(li);
+        });
+      });
+    </script>
+  </body>
+</html> 
