@@ -9,38 +9,6 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server);
 
-// A helper function to safely handle SQL queries
-function cleanseSQL(query, params) {
-    if (!query || !Array.isArray(params)) {
-        throw new Error("Invalid query or parameters.");
-    }
-
-    let index = 0;
-    const safeQuery = query.replace(/\?/g, () => {
-        if (index >= params.length) {
-            throw new Error("Insufficient parameters provided.");
-        }
-
-        const value = params[index++];
-        if (typeof value === "string") {
-            // Escape single quotes in strings
-            return `'${value.replace(/'/g, "''")}'`;
-        } else if (typeof value === "number" || typeof value === "boolean") {
-            return value;
-        } else if (value === null) {
-            return "NULL";
-        } else {
-            throw new Error("Unsupported parameter type.");
-        }
-    });
-
-    if (index !== params.length) {
-        throw new Error("Too many parameters provided.");
-    }
-
-    return safeQuery;
-}
-
 async function main() {
   // open the database file
   const db = await open({
@@ -64,16 +32,18 @@ async function main() {
     console.log('server running at http://localhost:3000');
   });
 
-  // Keep track of online users in memory
   const onlineUsers = {};
 
   io.on('connection', (socket) => {
-    // Handle incoming chat messages and broadcast to all clients
+    // On receiving a chat message, include the username
     socket.on('chat message', (msg) => {
-      io.emit('chat message', msg);
+      // Only send the username if the user is logged in
+      // If for some reason socket.username is undefined, show 'Anonymous'
+      const username = socket.username || 'Anonymous';
+      io.emit('chat message', { username, message: msg });
     });
 
-    // Handle account creation
+    // Handle account creation safely with parameterized queries
     socket.on('createaccount', async (user, pass) => {
       try {
         if (!user || !pass) {
@@ -82,16 +52,14 @@ async function main() {
         }
 
         // Check if username already exists
-        const checkQuery = cleanseSQL("SELECT user FROM user_pass WHERE user = ?", [user]);
-        const existingUser = await db.get(checkQuery);
+        const existingUser = await db.get("SELECT user FROM user_pass WHERE user = ?", [user]);
         if (existingUser) {
           socket.emit('registrationError', 'Username already taken.');
           return;
         }
 
         // Insert new user
-        const insertQuery = cleanseSQL("INSERT INTO user_pass (user, pass) VALUES (?, ?)", [user, pass]);
-        await db.run(insertQuery);
+        await db.run("INSERT INTO user_pass (user, pass) VALUES (?, ?)", [user, pass]);
         socket.emit('registrationSuccess', 'Account created successfully. You can now log in.');
       } catch (error) {
         console.error('Error creating account:', error);
@@ -99,7 +67,7 @@ async function main() {
       }
     });
 
-    // Handle user login
+    // Handle user login safely with parameterized queries
     socket.on('login', async (user, pass) => {
       try {
         if (!user || !pass) {
@@ -107,21 +75,17 @@ async function main() {
           return;
         }
 
-        const query = cleanseSQL("SELECT user, pass FROM user_pass WHERE user = ? AND pass = ?", [user, pass]);
-        const row = await db.get(query);
+        const row = await db.get("SELECT user, pass FROM user_pass WHERE user = ? AND pass = ?", [user, pass]);
         if (!row) {
           socket.emit('loginError', 'Invalid username or password.');
           return;
         }
 
-        // Successfully authenticated, store username on socket
+        // Successfully authenticated
         socket.username = user;
         onlineUsers[user] = true;
 
-        // Notify this client of success
         socket.emit('loginSuccess', 'You are now logged in.');
-
-        // Broadcast the updated list of online users to everyone
         io.emit('onlineUsers', Object.keys(onlineUsers));
       } catch (error) {
         console.error('Error during login:', error);
@@ -133,7 +97,6 @@ async function main() {
     socket.on('disconnect', () => {
       if (socket.username && onlineUsers[socket.username]) {
         delete onlineUsers[socket.username];
-        // Update all clients with new online user list
         io.emit('onlineUsers', Object.keys(onlineUsers));
       }
     });

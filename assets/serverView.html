@@ -12,13 +12,29 @@
         height: 100vh; 
         overflow: hidden; 
       }
+
       #top-forms {
         background: #f5f5f5; 
         padding: 1rem; 
         border-bottom: 1px solid #ccc;
       }
-      #top-forms form { margin: 0.5rem 0; }
+      #top-forms form { margin: 0.5rem 0; display: none; }
       #top-forms input { margin-right: 0.5rem; }
+
+      #createAccountForm.active,
+      #loginForm.active {
+        display: block;
+      }
+
+      #link-container {
+        margin-top: 1rem;
+      }
+      #link-container a {
+        color: blue;
+        cursor: pointer;
+        text-decoration: underline;
+        margin-right: 1rem;
+      }
 
       #chat-section {
         flex: 1; 
@@ -26,7 +42,6 @@
         overflow: hidden;
       }
 
-      /* Sidebar for online users */
       #sidebar {
         width: 200px; 
         border-right: 1px solid #ccc; 
@@ -50,7 +65,6 @@
         border-radius: 3px;
       }
 
-      /* Messages */
       #message-area {
         flex: 1; 
         display: flex; 
@@ -67,7 +81,6 @@
       #messages > li { padding: 0.5rem 1rem; }
       #messages > li:nth-child(odd) { background: #efefef; }
 
-      /* Chat input form */
       #form { 
         background: rgba(0, 0, 0, 0.15); 
         padding: 0.25rem; 
@@ -94,7 +107,6 @@
         color: #fff; 
       }
 
-      /* Hidden sections until user logs in */
       #chat-section, #form {
         display: none;
       }
@@ -105,25 +117,28 @@
   </head>
   <body>
     <div class="container">
-      <!-- Top section for registration and login -->
       <div id="top-forms">
         <h2>Welcome to the Chat!</h2>
+        <form id="loginForm" class="active">
+          <input type="text" id="login-username" placeholder="Username">
+          <input type="password" id="login-password" placeholder="Password">
+          <button type="submit">Login</button>
+          <div id="loginMessage" style="color: red;"></div>
+        </form>
+
         <form id="createAccountForm">
           <input type="text" id="reg-username" placeholder="Username">
           <input type="password" id="reg-password" placeholder="Password">
           <button type="submit">Create Account</button>
+          <div id="registrationMessage" style="color: green;"></div>
         </form>
-        <div id="registrationMessage" style="color: green;"></div>
 
-        <form id="loginForm">
-          <input type="text" id="login-username" placeholder="Username">
-          <input type="password" id="login-password" placeholder="Password">
-          <button type="submit">Login</button>
-        </form>
-        <div id="loginMessage" style="color: red;"></div>
+        <div id="link-container">
+          <a id="showLoginLink" style="display:none;">Already have an account? Log in</a>
+          <a id="showCreateAccountLink">Don't have an account? Create one</a>
+        </div>
       </div>
 
-      <!-- After logging in -->
       <div id="chat-section">
         <div id="sidebar">
           <h3>Online Users</h3>
@@ -158,7 +173,25 @@
       const chatSection = document.getElementById('chat-section');
       const userList = document.getElementById('user-list');
 
-      // Handle account creation
+      const topForms = document.getElementById('top-forms');
+      const showLoginLink = document.getElementById('showLoginLink');
+      const showCreateAccountLink = document.getElementById('showCreateAccountLink');
+
+      showCreateAccountLink.addEventListener('click', () => {
+        loginForm.classList.remove('active');
+        createAccountForm.classList.add('active');
+        showCreateAccountLink.style.display = 'none';
+        showLoginLink.style.display = 'inline';
+      });
+
+      showLoginLink.addEventListener('click', () => {
+        createAccountForm.classList.remove('active');
+        loginForm.classList.add('active');
+        showLoginLink.style.display = 'none';
+        showCreateAccountLink.style.display = 'inline';
+        registrationMessage.textContent = '';
+      });
+
       createAccountForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const user = regUsername.value.trim();
@@ -178,7 +211,6 @@
         registrationMessage.textContent = msg;
       });
 
-      // Handle login
       loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const user = loginUsername.value.trim();
@@ -196,12 +228,11 @@
       socket.on('loginSuccess', (msg) => {
         loginMessage.style.color = 'green';
         loginMessage.textContent = msg;
-        // Show chat section
         chatSection.classList.add('active');
         form.classList.add('active');
+        topForms.style.display = 'none';
       });
 
-      // Handle chat messages
       form.addEventListener('submit', (e) => {
         e.preventDefault();
         if (input.value) {
@@ -210,14 +241,14 @@
         }
       });
 
-      socket.on('chat message', (msg) => {
+      // Now 'msg' is an object { username: '', message: '' }
+      socket.on('chat message', (data) => {
         const item = document.createElement('li');
-        item.textContent = msg;
+        item.textContent = data.username + ': ' + data.message;
         messages.appendChild(item);
         messages.scrollTop = messages.scrollHeight;
       });
 
-      // Update online users
       socket.on('onlineUsers', (users) => {
         userList.innerHTML = '';
         users.forEach((user) => {
@@ -228,4 +259,4 @@
       });
     </script>
   </body>
-</html> 
+</html>
