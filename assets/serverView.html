@@ -3,10 +3,11 @@
   <head>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>Real-Time Chat</title>
-    <link rel="stylesheet" href="design.css">
+    <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
     <div class="container">
+      <!-- Top section for registration and login -->
       <div id="top-forms">
         <h2>Welcome to the Chat!</h2>
         <form id="loginForm" class="active">
@@ -29,6 +30,7 @@
         </div>
       </div>
 
+      <!-- After logging in -->
       <div id="chat-section">
         <div id="sidebar">
           <h3>Online Users</h3>
@@ -67,6 +69,7 @@
       const showLoginLink = document.getElementById('showLoginLink');
       const showCreateAccountLink = document.getElementById('showCreateAccountLink');
 
+      // Show the create account form and hide login form
       showCreateAccountLink.addEventListener('click', () => {
         loginForm.classList.remove('active');
         createAccountForm.classList.add('active');
@@ -74,14 +77,16 @@
         showLoginLink.style.display = 'inline';
       });
 
+      // Show the login form and hide create account form
       showLoginLink.addEventListener('click', () => {
         createAccountForm.classList.remove('active');
         loginForm.classList.add('active');
         showLoginLink.style.display = 'none';
         showCreateAccountLink.style.display = 'inline';
-        registrationMessage.textContent = '';
+        registrationMessage.textContent = ''; // clear any previous registration messages
       });
 
+      // Handle account creation
       createAccountForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const user = regUsername.value.trim();
@@ -101,6 +106,7 @@
         registrationMessage.textContent = msg;
       });
 
+      // Handle login
       loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const user = loginUsername.value.trim();
@@ -118,11 +124,13 @@
       socket.on('loginSuccess', (msg) => {
         loginMessage.style.color = 'green';
         loginMessage.textContent = msg;
+        // Show chat section and hide top forms after login
         chatSection.classList.add('active');
         form.classList.add('active');
         topForms.style.display = 'none';
       });
 
+      // Handle chat messages
       form.addEventListener('submit', (e) => {
         e.preventDefault();
         if (input.value) {
@@ -131,13 +139,14 @@
         }
       });
 
-      socket.on('chat message', (data) => {
+      socket.on('chat message', (msg) => {
         const item = document.createElement('li');
-        item.textContent = data.username + ': ' + data.message;
+        item.textContent = msg;
         messages.appendChild(item);
         messages.scrollTop = messages.scrollHeight;
       });
 
+      // Update online users
       socket.on('onlineUsers', (users) => {
         userList.innerHTML = '';
         users.forEach((user) => {

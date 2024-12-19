@@ -9,6 +9,8 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server);
 
+app.use(express.static(join(__dirname, 'assets')));
+
 async function main() {
   // open the database file
   const db = await open({
